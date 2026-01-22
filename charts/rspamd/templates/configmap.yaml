@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rspamd.fullname" . }}
+  labels: {{- include "rspamd.labels" . | nindent 4}}
+data:
+{{- if .Values.valkey.enabled }}
+  redis.conf: |
+    servers = "{{ .Release.Name }}-valkey:6379";
+  history_redis.conf: |
+    servers = {{ .Release.Name }}-valkey:6379;
+    key_prefix = "rs_history";
+    nrows = 200;
+    compress = true;
+    subject_privacy = false;
+  classifier-bayes.conf: |
+    backend = "redis";
+{{- else }}
+  classifier-bayes.conf: ""
+{{- end }}
+  worker-normal.inc: |
+    bind_socket = "*:11333";
+  worker-proxy.inc: |
+    bind_socket = "*:11332";
+    upstream "local" {
+      default = yes;
+      self_scan = yes;
+    }
+  dkim_signing.conf: |
+    allow_hdrfrom_mismatch_sign_networks = {{ .Values.rspamd.dkim.allow_hdrfrom_mismatch_sign_networks }};
+    allow_username_mismatch = {{ .Values.rspamd.dkim.allow_username_mismatch }};
+    sign_authenticated = {{ .Values.rspamd.dkim.sign_authenticated }};
+    use_domain = {{ .Values.rspamd.dkim.use_domain | quote }};
+    use_esld = {{ .Values.rspamd.dkim.use_esld }};
+    allow_hdrfrom_mismatch = {{ .Values.rspamd.dkim.allow_hdrfrom_mismatch }};
+    {{- if .Values.rspamd.dkim.domains }}
+    domain {
+      {{- range $domain := .Values.rspamd.dkim.domains }}
+        {{ $domain.name }} {
+            path = "/var/lib/rspamd/dkim/{{ $domain.name }}.{{ $domain.selector }}.key";
+            selector = "{{ $domain.selector }}";
+        }
+        {{- end }}
+    }
+    {{- end }}
+{{- if .Values.rspamd.arc.enabled }}
+  arc.conf: |
+    selector = {{ .Values.rspamd.arc.selector }}
+    path = "/var/lib/rspamd/arc/$domain.$selector.key";
+
+    use_domain = {{ .Values.rspamd.arc.use_domain }}
+    use_esld = {{ .Values.rspamd.arc.use_esld }}
+    sign_local = {{ .Values.rspamd.arc.sign_local }}
+    sign_inbound = {{ .Values.rspamd.arc.sign_inbound }}
+    sign_authenticated = {{ .Values.rspamd.arc.sign_authenticated }}
+    allow_envfrom_empty = {{ .Values.rspamd.arc.allow_envfrom_empty }}
+    allow_hdrfrom_mismatch = {{ .Values.rspamd.arc.allow_hdrfrom_mismatch }}
+    allow_hdrfrom_mismatch_local = {{ .Values.rspamd.arc.allow_hdrfrom_mismatch_local }}
+    allow_hdrfrom_mismatch_sign_networks = {{ .Values.rspamd.arc.allow_hdrfrom_mismatch_sign_networks }}
+    allow_hdrfrom_multiple = {{ .Values.rspamd.arc.allow_hdrfrom_multiple }}
+    allow_username_mismatch = {{ .Values.rspamd.arc.allow_username_mismatch }}
+    sign_headers = "{{ .Values.rspamd.arc.sign_headers }}";
+    {{- if .Values.rspamd.arc.domains }}
+    domain {
+      {{- range $domain := .Values.rspamd.arc.domains }}
+        {{ $domain.name }} {
+            path = "/var/lib/rspamd/arc/{{ $domain.name }}.{{ $domain.selector }}.key";
+            selector = "{{ $domain.selector }}";
+        }
+        {{- end }}
+    }
+    {{- end }}
+{{- end }}
+
+{{- if .Values.rspamd.milterHeaders }}
+  milter_headers.conf: |
+{{ .Values.rspamd.milterHeaders | indent 4 }}
+{{- end }}
