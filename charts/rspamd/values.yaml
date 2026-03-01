@@ -123,6 +123,8 @@ tolerations: []
 affinity: {}
 
 rspamd:
+  reject: "null"
+  greylist: "null"
   dkim:
     allow_hdrfrom_mismatch_sign_networks: "true"
     allow_username_mismatch: "true"
