@@ -4,6 +4,9 @@ metadata:
   name: {{ include "rspamd.fullname" . }}
   labels: {{- include "rspamd.labels" . | nindent 4}}
 data:
+  actions.conf: |
+    reject = {{ .Values.rspamd.reject }};
+    greylist = {{ .Values.rspamd.greylist }};
 {{- if .Values.valkey.enabled }}
   redis.conf: |
     servers = "{{ .Release.Name }}-valkey:6379";
