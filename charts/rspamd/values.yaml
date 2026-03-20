@@ -10,7 +10,8 @@ persistence:
   size: 128Mi
   storageClass: ""
   volumeName: ""
-  annotations: {}
+  annotations:
+    "helm.sh/resource-policy": keep
   # -- Only mount a subpath of the Volume into the pod
   subPath: ""
 
