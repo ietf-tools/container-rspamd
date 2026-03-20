@@ -129,6 +129,8 @@ rspamd:
     allow_hdrfrom_mismatch_sign_networks: "true"
     allow_username_mismatch: "true"
     sign_authenticated: "true"
+    sign_local: "true"
+    sign_inbound: "true"
     use_domain: "envelope"
     use_esld: "false"
     allow_hdrfrom_mismatch: "true"

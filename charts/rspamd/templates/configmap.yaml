@@ -33,6 +33,8 @@ data:
     allow_hdrfrom_mismatch_sign_networks = {{ .Values.rspamd.dkim.allow_hdrfrom_mismatch_sign_networks }};
     allow_username_mismatch = {{ .Values.rspamd.dkim.allow_username_mismatch }};
     sign_authenticated = {{ .Values.rspamd.dkim.sign_authenticated }};
+    sign_local = {{ .Values.rspamd.dkim.sign_local }}
+    sign_inbound = {{ .Values.rspamd.dkim.sign_inbound }}
     use_domain = {{ .Values.rspamd.dkim.use_domain | quote }};
     use_esld = {{ .Values.rspamd.dkim.use_esld }};
     allow_hdrfrom_mismatch = {{ .Values.rspamd.dkim.allow_hdrfrom_mismatch }};
