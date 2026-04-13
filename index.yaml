@@ -3,6 +3,21 @@ entries:
   rspamd:
   - apiVersion: v2
     appVersion: 3.14.2
+    created: "2026-04-13T01:48:00.375475114Z"
+    dependencies:
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm/
+      version: 0.9.2
+    description: IETF rspamd deployment for kubernetes
+    digest: 5b7e7133907d32777f442522b04dcc16028548189047950892c33afef5b50beb
+    name: rspamd
+    type: application
+    urls:
+    - https://github.com/ietf-tools/container-rspamd/releases/download/rspamd-1.0.4/rspamd-1.0.4.tgz
+    version: 1.0.4
+  - apiVersion: v2
+    appVersion: 3.14.2
     created: "2026-03-20T07:32:00.479271163Z"
     dependencies:
     - condition: valkey.enabled
@@ -61,4 +76,4 @@ entries:
     urls:
     - https://github.com/ietf-tools/container-rspamd/releases/download/rspamd-1.0.0/rspamd-1.0.0.tgz
     version: 1.0.0
-generated: "2026-03-20T07:32:00.479289187Z"
+generated: "2026-04-13T01:48:00.375497286Z"
