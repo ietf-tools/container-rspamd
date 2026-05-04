@@ -7,6 +7,8 @@ data:
   actions.conf: |
     reject = {{ .Values.rspamd.reject }};
     greylist = {{ .Values.rspamd.greylist }};
+  logging.inc: |
+    debug_modules = ["dkim_signing"];
 {{- if .Values.valkey.enabled }}
   redis.conf: |
     servers = "{{ .Release.Name }}-valkey:6379";
@@ -25,9 +27,15 @@ data:
     bind_socket = "*:11333";
   worker-proxy.inc: |
     bind_socket = "*:11332";
+    milter = true;
+    log_tag_type = "queue_id";
+
     upstream "local" {
       default = yes;
-      self_scan = yes;
+      #self_scan = true;
+      hosts = "localhost";
+      # Use MTA's Queue-ID for log correlation
+      log_tag_type = "queue_id";
     }
   dkim_signing.conf: |
     allow_hdrfrom_mismatch_sign_networks = {{ .Values.rspamd.dkim.allow_hdrfrom_mismatch_sign_networks }};

@@ -80,7 +80,7 @@ spec:
               mountPath: /etc/rspamd/local.d/worker-normal.inc
               subPath: worker-normal.inc
             - name: config
-              mountPath: /etc/rspamd/local.d/worker-proxy.inc
+              mountPath: /etc/rspamd/override.d/worker-proxy.inc
               subPath: worker-proxy.inc
             - name: config
               mountPath: /etc/rspamd/local.d/dkim_signing.conf
@@ -117,6 +117,9 @@ spec:
             - name: config
               mountPath: /etc/rspamd/local.d/actions.conf
               subPath: actions.conf
+            - name: config
+              mountPath: /etc/rspamd/local.d/logging.inc
+              subPath: logging.inc
       volumes:
         - name: data
           {{- if .Values.persistence.enabled }}
