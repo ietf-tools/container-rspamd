@@ -130,6 +130,18 @@ affinity: {}
 rspamd:
   reject: "null"
   greylist: "null"
+
+  logging:
+    level: "info"
+    log_usec: false
+    debug_modules: ["dkim_signing"]
+
+  historyRedis:
+    nrows: 200
+    keyPrefix: "rs_history"
+    compress: true
+    subjectPrivacy: false
+
   dkim:
     allow_hdrfrom_mismatch_sign_networks: "true"
     allow_username_mismatch: "true"
