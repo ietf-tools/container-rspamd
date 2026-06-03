@@ -135,7 +135,11 @@ rspamd:
     level: "info"
     log_usec: false
     debug_modules: ["dkim_signing"]
-    type: "file"
+    # Leave `type` empty to inherit the image default (console -> stdout),
+    # Set type: "file" (with filebeat.enabled + logTail) to also ship the file
+    # to an external ES via the filebeat sidecar.
+    # rspamd: "file" disables console, which is why logTail re-emits to stdout.
+    type: ""
     filename: "/var/log/rspamd/rspamd.log"
 
   historyRedis:
@@ -195,8 +199,6 @@ valkey:
   metrics:
     enabled: true
 
-# NOTE: rspamd.log grows unbounded in the shared emptyDir. Pod restart
-# clears it. might need a logrotate sidecar.
 filebeat:
   filebeatVersion: 9.3.3
   enabled: false
@@ -209,3 +211,16 @@ filebeat:
     - rspamd
   filePaths:
     - /var/log/rspamd/rspamd.log
+
+  # When filebeat is enabled rspamd logs to a file instead of stdout, which
+  # would otherwise stop the cluster's alloy-logs DaemonSet from scraping it
+  # into Loki. This sidecar tails the file back out to stdout to restore that.
+  logTail:
+    enabled: true
+    image: busybox:1.37
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        memory: 32Mi

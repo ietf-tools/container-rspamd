@@ -150,6 +150,28 @@ spec:
             subPath: ca.pem
             readOnly: true
           {{- end }}
+      {{- if .Values.filebeat.logTail.enabled }}
+      # rspamd logs to a file (not stdout) so filebeat can ship it. This
+      # sidecar re-emits that file to stdout so the cluster's alloy-logs
+      # DaemonSet keeps scraping rspamd into Loki as well. `tail -F` follows
+      # by name and re-opens after copytruncate rotation.
+      - name: log-tail
+        image: {{ .Values.filebeat.logTail.image }}
+        imagePullPolicy: IfNotPresent
+        restartPolicy: Always
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            exec tail -F {{ .Values.rspamd.logging.filename }}
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log/rspamd
+            readOnly: true
+        {{- with .Values.filebeat.logTail.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
       {{- end }}
       volumes:
         - name: data
