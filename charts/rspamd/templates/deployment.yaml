@@ -40,6 +40,23 @@ spec:
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if eq .Values.rspamd.logging.type "file" }}
+          env:
+            - name: RSPAMD_LOG_TYPE
+              value: "file"
+            - name: RSPAMD_LOG_FILE
+              value: "{{ .Values.rspamd.logging.filename }}"
+            - name: RSPAMD_LOG_TAIL
+              value: "{{ .Values.rspamd.logging.tail }}"
+            - name: RSPAMD_LOGROTATE
+              value: "{{ .Values.rspamd.logging.rotate.enabled }}"
+            - name: RSPAMD_LOGROTATE_SIZE
+              value: "{{ .Values.rspamd.logging.rotate.size }}"
+            - name: RSPAMD_LOGROTATE_KEEP
+              value: "{{ .Values.rspamd.logging.rotate.keep }}"
+            - name: RSPAMD_LOGROTATE_INTERVAL
+              value: "{{ .Values.rspamd.logging.rotate.intervalSeconds }}"
+          {{- end }}
           ports:
             - name: proxy
               containerPort: {{ .Values.service.proxyPort }}

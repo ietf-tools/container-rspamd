@@ -21,7 +21,7 @@ replicaCount: 1
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: rspamd/rspamd
+  repository: ghcr.io/ietf-tools/container-rspamd
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
@@ -137,6 +137,13 @@ rspamd:
     debug_modules: ["dkim_signing"]
     type: "file"
     filename: "/var/log/rspamd/rspamd.log"
+    tail: true # send active log to stdout for container log shipping
+
+    rotate:
+      enabled: true
+      size: "100M"
+      keep: 3
+      intervalSeconds: 500
 
   historyRedis:
     nrows: 200
