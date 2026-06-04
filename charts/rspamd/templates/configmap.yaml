@@ -11,6 +11,12 @@ data:
     level = "{{ .Values.rspamd.logging.level }}";
     log_usec = {{ .Values.rspamd.logging.log_usec }};
     debug_modules = {{ .Values.rspamd.logging.debug_modules | toJson }};
+    {{- with .Values.rspamd.logging.type }}
+    type = "{{ . }}";
+    {{- end }}
+    {{- with .Values.rspamd.logging.filename }}
+    filename = "{{ . }}";
+    {{- end }}
 {{- if .Values.valkey.enabled }}
   redis.conf: |
     servers = "{{ .Release.Name }}-valkey:6379";

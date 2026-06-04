@@ -135,6 +135,8 @@ rspamd:
     level: "info"
     log_usec: false
     debug_modules: ["dkim_signing"]
+    type: "file"
+    filename: "/var/log/rspamd/rspamd.log"
 
   historyRedis:
     nrows: 200
@@ -192,3 +194,16 @@ valkey:
 
   metrics:
     enabled: true
+
+filebeat:
+  filebeatVersion: 9.3.3
+  enabled: false
+  tlsCA: false
+  # Empty -> falls back to the chart's fullname (release-name-rspamd).
+  loggingHostname: ""
+  logstashHost: 127.0.0.1
+  logstashPort: 5044
+  logstashTags:
+    - rspamd
+  filePaths:
+    - /var/log/rspamd/rspamd.log
