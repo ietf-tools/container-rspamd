@@ -17,22 +17,6 @@ data:
     {{- with .Values.rspamd.logging.filename }}
     filename = "{{ . }}";
     {{- end }}
-{{- if and (eq .Values.rspamd.logging.type "file") .Values.rspamd.logging.rotate.enabled }}
-  logrotate.conf: |
-    {{ .Values.rspamd.logging.filename }} {
-        missingok
-        notifempty
-        size {{ .Values.rspamd.logging.rotate.size }}
-        rotate {{ .Values.rspamd.logging.rotate.keep }}
-        compress
-        delaycompress
-        create 0644
-        sharedscripts
-        postrotate
-            kill -USR1 1 2>/dev/null || true
-        endscript
-    }
-{{- end }}
 {{- if .Values.valkey.enabled }}
   redis.conf: |
     servers = "{{ .Release.Name }}-valkey:6379";
