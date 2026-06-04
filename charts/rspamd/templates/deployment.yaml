@@ -50,10 +50,6 @@ spec:
               value: "{{ .Values.rspamd.logging.tail }}"
             - name: RSPAMD_LOGROTATE
               value: "{{ .Values.rspamd.logging.rotate.enabled }}"
-            - name: RSPAMD_LOGROTATE_SIZE
-              value: "{{ .Values.rspamd.logging.rotate.size }}"
-            - name: RSPAMD_LOGROTATE_KEEP
-              value: "{{ .Values.rspamd.logging.rotate.keep }}"
             - name: RSPAMD_LOGROTATE_INTERVAL
               value: "{{ .Values.rspamd.logging.rotate.intervalSeconds }}"
           {{- end }}
@@ -137,6 +133,11 @@ spec:
             - name: config
               mountPath: /etc/rspamd/local.d/logging.inc
               subPath: logging.inc
+          {{- if and (eq .Values.rspamd.logging.type "file") .Values.rspamd.logging.rotate.enabled }}
+            - name: config
+              mountPath: /etc/rspamd/logrotate.conf
+              subPath: logrotate.conf
+          {{- end }}
             - name: logs
               mountPath: /var/log/rspamd
       {{- if .Values.filebeat.enabled }}

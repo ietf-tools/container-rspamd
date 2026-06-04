@@ -9,7 +9,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* /var/log/apt/*.log /var/log/dpkg.log
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-COPY logrotate.conf /etc/rspamd-logrotate.conf
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER 11333:11333

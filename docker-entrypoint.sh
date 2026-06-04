@@ -8,10 +8,10 @@ RSPAMD_LOG_FILE="${RSPAMD_LOG_FILE:-/var/log/rspamd/rspamd.log}"
 # Re-emit the log file to stdout (for alloy/Loki) when logging to a file.
 RSPAMD_LOG_TAIL="${RSPAMD_LOG_TAIL:-true}"
 
-# In-process log rotation.
+# In-process log rotation. The logrotate config is supplied by the chart
+# (mounted from the ConfigMap); only the run interval is set here.
 RSPAMD_LOGROTATE="${RSPAMD_LOGROTATE:-true}"
-RSPAMD_LOGROTATE_SIZE="${RSPAMD_LOGROTATE_SIZE:-100M}"
-RSPAMD_LOGROTATE_KEEP="${RSPAMD_LOGROTATE_KEEP:-3}"
+RSPAMD_LOGROTATE_CONF="${RSPAMD_LOGROTATE_CONF:-/etc/rspamd/logrotate.conf}"
 RSPAMD_LOGROTATE_INTERVAL="${RSPAMD_LOGROTATE_INTERVAL:-500}"
 
 log() { echo "docker-entrypoint.sh: $*" >&2; }
@@ -29,22 +29,19 @@ if [ "$RSPAMD_LOG_TYPE" = "file" ]; then
         tail -n0 -F "$RSPAMD_LOG_FILE" &
     fi
 
-    if [ "$RSPAMD_LOGROTATE" = "true" ]; then
+    if [ "$RSPAMD_LOGROTATE" = "true" ] && [ -f "$RSPAMD_LOGROTATE_CONF" ]; then
         # state file in the writable log dir (the default /var/lib/logrotate is
         # not writable as UID 11333).
-        rotate_conf="${log_dir}/logrotate.conf"
         rotate_state="${log_dir}/logrotate.status"
-        sed -e "s#__LOGFILE__#${RSPAMD_LOG_FILE}#" \
-            -e "s#__SIZE__#${RSPAMD_LOGROTATE_SIZE}#" \
-            -e "s#__ROTATE__#${RSPAMD_LOGROTATE_KEEP}#" \
-            /etc/rspamd-logrotate.conf > "$rotate_conf"
 
-        log "logrotate every ${RSPAMD_LOGROTATE_INTERVAL}s (size ${RSPAMD_LOGROTATE_SIZE}, keep ${RSPAMD_LOGROTATE_KEEP})"
+        log "logrotate every ${RSPAMD_LOGROTATE_INTERVAL}s (config ${RSPAMD_LOGROTATE_CONF})"
         # If this loop dies the worst case is the log grows until pod restart
         while sleep "$RSPAMD_LOGROTATE_INTERVAL"; do
-            logrotate -s "$rotate_state" "$rotate_conf" || \
+            logrotate -s "$rotate_state" "$RSPAMD_LOGROTATE_CONF" || \
                 log "logrotate run failed (continuing)"
         done &
+    elif [ "$RSPAMD_LOGROTATE" = "true" ]; then
+        log "logrotate enabled but no config at ${RSPAMD_LOGROTATE_CONF}; skipping rotation"
     fi
 fi
 
