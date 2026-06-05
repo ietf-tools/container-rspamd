@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-# Upstream defaults logging.type to "console" via RSPAMD_LOG_TYPE=console.
+# Logging destination. "console" (the default) leaves rspamd's upstream
+# behaviour untouched. "file" makes the entrypoint point rspamd at a log file
+# (via override.d/logging.inc) and tail/rotate it.
 RSPAMD_LOG_TYPE="${RSPAMD_LOG_TYPE:-console}"
 RSPAMD_LOG_FILE="${RSPAMD_LOG_FILE:-/var/log/rspamd/rspamd.log}"
 
@@ -23,6 +25,15 @@ if [ "$RSPAMD_LOG_TYPE" = "file" ]; then
     # Ensure the file exists so `tail -F` and logrotate have something to open
     # straight away (rspamd will reopen/append to it once it starts).
     : > "$RSPAMD_LOG_FILE" 2>/dev/null || true
+
+    # Point rspamd at the file. override.d strictly overrides the upstream
+    # logging.inc; level/log_usec/debug_modules still come from local.d (the
+    # chart's ConfigMap). The dir is chowned to this UID in the Dockerfile.
+    cat > /etc/rspamd/override.d/logging.inc <<EOF
+type = "file";
+filename = "${RSPAMD_LOG_FILE}";
+EOF
+    log "rspamd logging to $RSPAMD_LOG_FILE (override.d/logging.inc)"
 
     if [ "$RSPAMD_LOG_TAIL" = "true" ]; then
         log "tailing $RSPAMD_LOG_FILE to stdout"

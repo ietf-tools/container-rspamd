@@ -11,6 +11,10 @@ RUN apt-get update \
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# The entrypoint writes override.d/logging.inc to point rspamd at a file when
+# file logging is requested; make the dir writable by the runtime UID.
+RUN chown 11333:11333 /etc/rspamd/override.d
+
 USER 11333:11333
 
 ENTRYPOINT ["docker-entrypoint.sh"]

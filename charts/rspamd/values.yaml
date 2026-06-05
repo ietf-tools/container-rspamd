@@ -132,9 +132,13 @@ rspamd:
   greylist: "null"
 
   logging:
+    # level/log_usec/debug_modules are merged into rspamd via local.d/logging.inc.
     level: "info"
     log_usec: false
     debug_modules: ["dkim_signing"]
+    # type/filename drive the image's RSPAMD_LOG_* env. type=file makes the
+    # entrypoint point rspamd at the file (override.d/logging.inc) and tail it;
+    # type=console leaves upstream stdout logging untouched.
     type: "file"
     filename: "/var/log/rspamd/rspamd.log"
     tail: true # send active log to stdout for container log shipping
