@@ -21,7 +21,7 @@ replicaCount: 1
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: rspamd/rspamd
+  repository: ghcr.io/ietf-tools/container-rspamd
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
@@ -132,9 +132,22 @@ rspamd:
   greylist: "null"
 
   logging:
+    # level/log_usec/debug_modules are merged into rspamd via local.d/logging.inc.
     level: "info"
     log_usec: false
     debug_modules: ["dkim_signing"]
+    # type/filename drive the image's RSPAMD_LOG_* env. type=file makes the
+    # entrypoint point rspamd at the file (override.d/logging.inc) and tail it;
+    # type=console leaves upstream stdout logging untouched.
+    type: "file"
+    filename: "/var/log/rspamd/rspamd.log"
+    tail: true # send active log to stdout for container log shipping
+
+    rotate:
+      enabled: true
+      size: "100M"
+      keep: 3
+      intervalSeconds: 500
 
   historyRedis:
     nrows: 200
@@ -192,3 +205,16 @@ valkey:
 
   metrics:
     enabled: true
+
+filebeat:
+  filebeatVersion: 9.3.3
+  enabled: false
+  tlsCA: false
+  # Empty -> falls back to the chart's fullname (release-name-rspamd).
+  loggingHostname: ""
+  logstashHost: 127.0.0.1
+  logstashPort: 5044
+  logstashTags:
+    - rspamd
+  filePaths:
+    - /var/log/rspamd/rspamd.log

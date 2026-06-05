@@ -40,6 +40,23 @@ spec:
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if eq .Values.rspamd.logging.type "file" }}
+          env:
+            - name: RSPAMD_LOG_TYPE
+              value: "file"
+            - name: RSPAMD_LOG_FILE
+              value: "{{ .Values.rspamd.logging.filename }}"
+            - name: RSPAMD_LOG_TAIL
+              value: "{{ .Values.rspamd.logging.tail }}"
+            - name: RSPAMD_LOGROTATE
+              value: "{{ .Values.rspamd.logging.rotate.enabled }}"
+            - name: RSPAMD_LOGROTATE_SIZE
+              value: "{{ .Values.rspamd.logging.rotate.size }}"
+            - name: RSPAMD_LOGROTATE_KEEP
+              value: "{{ .Values.rspamd.logging.rotate.keep }}"
+            - name: RSPAMD_LOGROTATE_INTERVAL
+              value: "{{ .Values.rspamd.logging.rotate.intervalSeconds }}"
+          {{- end }}
           ports:
             - name: proxy
               containerPort: {{ .Values.service.proxyPort }}
@@ -120,6 +137,37 @@ spec:
             - name: config
               mountPath: /etc/rspamd/local.d/logging.inc
               subPath: logging.inc
+            - name: logs
+              mountPath: /var/log/rspamd
+      {{- if .Values.filebeat.enabled }}
+      initContainers:
+      - name: filebeat
+        image: elastic/filebeat:{{ .Values.filebeat.filebeatVersion }}
+        imagePullPolicy: IfNotPresent
+        restartPolicy: Always
+        args:
+          - -c
+          - /etc/filebeat.yml
+          - -e
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log/rspamd
+            readOnly: true
+          - name: filebeat-config
+            mountPath: /etc/filebeat.yml
+            subPath: filebeat.yml
+            readOnly: true
+          # Writable scratch for the filebeat registry. Required when securityContext 
+          # has a non-root runAsUser
+          - name: filebeat-data
+            mountPath: /usr/share/filebeat/data
+          {{- if .Values.filebeat.tlsCA }}
+          - name: filebeat-ca
+            mountPath: /etc/filebeat/ca.pem
+            subPath: ca.pem
+            readOnly: true
+          {{- end }}
+      {{- end }}
       volumes:
         - name: data
           {{- if .Values.persistence.enabled }}
@@ -131,6 +179,22 @@ spec:
         - name: config
           configMap:
             name: {{include "rspamd.fullname" .}}
+        - name: logs
+          emptyDir: {}
+        {{- if .Values.filebeat.enabled }}
+        - name: filebeat-config
+          configMap:
+            name: {{ include "rspamd.fullname" . }}-filebeat-config
+            defaultMode: 0444
+        - name: filebeat-data
+          emptyDir: {}
+        {{- if .Values.filebeat.tlsCA }}
+        - name: filebeat-ca
+          configMap:
+            name: {{ include "rspamd.fullname" . }}-filebeat-ca
+            defaultMode: 0444
+        {{- end }}
+        {{- end }}
 
 
       {{- with .Values.dnsPolicy }}
