@@ -16,6 +16,11 @@ persistence:
   subPath: ""
 
 
+# Deployment update strategy. Recreate because the data PVC is ReadWriteOnce.
+# RollingUpdate spins up a second pod that can't attach the volume
+strategy:
+  type: Recreate
+
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
