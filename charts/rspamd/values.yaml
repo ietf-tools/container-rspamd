@@ -2,6 +2,8 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+strategy:
+  type: Recreate
 
 persistence:
   enabled: false
@@ -129,7 +131,7 @@ affinity: {}
 
 rspamd:
   reject: "null"
-  greylist: "null"
+  disableGreylisting: true
 
   logging:
     # level/log_usec/debug_modules are merged into rspamd via local.d/logging.inc.

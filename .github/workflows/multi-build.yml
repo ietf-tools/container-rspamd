@@ -119,7 +119,7 @@ jobs:
         # base image version; pass it to the build as RSPAMD_VERSION.
         id: appversion
         run: |
-          echo "version=$(yq '.appVersion' charts/rspamd/Chart.yaml)" >> "$GITHUB_OUTPUT"
+          echo "version=$(yq '.baseVersion' charts/rspamd/Chart.yaml)" >> "$GITHUB_OUTPUT"
 
 
       - name: Build and push by digest
