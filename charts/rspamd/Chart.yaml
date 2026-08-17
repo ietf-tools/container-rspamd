@@ -4,9 +4,11 @@ description: IETF rspamd deployment for kubernetes
 
 type: application
 
-version: 2.0.1
+version: 2.0.2
 
-appVersion: "4.0.1"
+appVersion: "2.0.2"
+
+baseVersion: "4.0.1"
 
 dependencies:
   - name: valkey

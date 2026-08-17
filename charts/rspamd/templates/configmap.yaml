@@ -4,9 +4,15 @@ metadata:
   name: {{ include "rspamd.fullname" . }}
   labels: {{- include "rspamd.labels" . | nindent 4}}
 data:
+  greylist.conf: |
+{{- if .Values.rspamd.disableGreylisting }}
+    enabled = false;
+{{- end }}
   actions.conf: |
     reject = {{ .Values.rspamd.reject }};
-    greylist = {{ .Values.rspamd.greylist }};
+{{- if .Values.rspamd.disableGreylisting }}
+    greylist = null;
+{{- end }}
   logging.inc: |
     level = "{{ .Values.rspamd.logging.level }}";
     log_usec = {{ .Values.rspamd.logging.log_usec }};

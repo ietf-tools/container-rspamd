@@ -8,6 +8,10 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  {{ with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "rspamd.selectorLabels" . | nindent 6 }}
@@ -137,6 +141,9 @@ spec:
             - name: config
               mountPath: /etc/rspamd/local.d/logging.inc
               subPath: logging.inc
+            - name: config
+              mountPath: /etc/rspamd/local.d/greylist.conf
+              subPath: greylist.conf
             - name: logs
               mountPath: /var/log/rspamd
       {{- if .Values.filebeat.enabled }}
