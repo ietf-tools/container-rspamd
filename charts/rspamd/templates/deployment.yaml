@@ -124,6 +124,12 @@ spec:
               mountPath: /etc/rspamd/local.d/multimap.conf
               subPath: multimap.conf
             - name: config
+              mountPath: /etc/rspamd/local.d/ip_whitelist.map
+              subPath: ip_whitelist.map
+            - name: config
+              mountPath: /etc/rspamd/local.d/whitelist_sender_domain.map
+              subPath: whitelist_sender_domain.map
+            - name: config
               mountPath: /etc/rspamd/local.d/whitelist_ip.map
               subPath: whitelist_ip.map
             - name: config
