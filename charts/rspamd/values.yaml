@@ -132,6 +132,10 @@ affinity: {}
 rspamd:
   reject: "null"
   disableGreylisting: true
+  whitelist_ip:
+    - 192.168.1.1
+  whitelist_sender_domain:
+    - mydomain.com
 
   logging:
     # level/log_usec/debug_modules are merged into rspamd via local.d/logging.inc.

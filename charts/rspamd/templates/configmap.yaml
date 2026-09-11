@@ -4,6 +4,27 @@ metadata:
   name: {{ include "rspamd.fullname" . }}
   labels: {{- include "rspamd.labels" . | nindent 4}}
 data:
+  multimap.conf: |
+    IP_WHITELIST {
+        type = "ip";
+        prefilter = true;
+        map = "/etc/rspamd/local.d/whitelist_ip.map";
+        action = "accept";
+    }
+    WHITELIST_SENDER_DOMAIN {
+        type = "from";
+        filter = "email:domain";
+        map = "/etc/rspamd/local.d/whitelist_sender_domain.map";
+        score = -6.0
+    }
+  whitelist_ip.map: |
+{{- range .Values.rspamd.whitelist_ip }}
+    {{ . }}
+{{- end }}
+  whitelist_sender_domain.map: |
+{{- range .Values.rspamd.whitelist_sender_domain }}
+    {{ . }}
+{{- end }}
   greylist.conf: |
 {{- if .Values.rspamd.disableGreylisting }}
     enabled = false;
