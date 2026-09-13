@@ -30,6 +30,7 @@ data:
     enabled = false;
 {{- end }}
   actions.conf: |
+    add_header = {{ .Values.rspamd.add_header }};
     reject = {{ .Values.rspamd.reject }};
 {{- if .Values.rspamd.disableGreylisting }}
     greylist = null;
