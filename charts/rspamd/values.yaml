@@ -133,6 +133,8 @@ rspamd:
   reject: "null"
   add_header: 6
   disableGreylisting: true
+  spf_strict_domains:
+    - example.com
   whitelist_ip:
     - 192.168.1.1
   whitelist_sender_domain:
