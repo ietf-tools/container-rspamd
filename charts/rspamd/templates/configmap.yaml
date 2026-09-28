@@ -17,6 +17,25 @@ data:
         map = "/etc/rspamd/local.d/whitelist_sender_domain.map";
         score = -6.0
     }
+    SPF_STRICT_DOMAIN {
+      type = "from";              # envelope sender (MAIL FROM), which is what SPF checks
+      filter = "email:domain";
+      map = "/etc/rspamd/local.d/spf_strict_domains.map";
+      score = 0.0;                # only a marker, adds no score
+      description = "Sender domain gets strict SPF handling";
+    }
+  force_actions.conf: |
+    rules {
+      SPF_SOFTFAIL_STRICT_REJECT {
+        action = "reject";
+        expression = "R_SPF_SOFTFAIL & SPF_STRICT_DOMAIN";
+        message = "SPF softfail not accepted for this sender domain";
+      }
+    }
+  spf_strict_domains.map: |
+{{- range .Values.rspamd.spf_strict_domains }}
+    {{ . }}
+{{- end }}
   whitelist_ip.map: |
 {{- range .Values.rspamd.whitelist_ip }}
     {{ . }}
