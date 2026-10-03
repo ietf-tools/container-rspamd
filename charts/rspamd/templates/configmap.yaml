@@ -69,6 +69,11 @@ data:
     subject_privacy = {{ .Values.rspamd.historyRedis.subjectPrivacy }};
   classifier-bayes.conf: |
     backend = "redis";
+    autolearn {
+      spam_threshold = {{ .Values.rspamd.spam_autolearn_threshold }};
+      ham_threshold = {{ .Values.rspamd.ham_autolearn_threshold }};
+      check_balance = true;
+    }
 {{- else }}
   classifier-bayes.conf: ""
 {{- end }}
