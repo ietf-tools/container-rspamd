@@ -132,6 +132,8 @@ affinity: {}
 rspamd:
   reject: "null"
   add_header: 6
+  spam_autolearn_threshold: 10
+  ham_autolearn_threshold: -0.2
   disableGreylisting: true
   spf_strict_domains:
     - example.com
