@@ -4,6 +4,24 @@ metadata:
   name: {{ include "rspamd.fullname" . }}
   labels: {{- include "rspamd.labels" . | nindent 4}}
 data:
+  mx_check.conf: |
+    enabled = true;
+
+    exclude_domains = [
+      "${CONFDIR}/local.d/maps.d/mx_check_exclude_domains.inc",
+      "https://maps.rspamd.com/rspamd/dmarc_whitelist_new.inc",
+      "https://maps.rspamd.com/rspamd/spf_dkim_whitelist.inc",
+      "https://maps.rspamd.com/rspamd/maillist.inc",
+      "https://maps.rspamd.com/freemail/free.txt.zst",
+      "https://maps.rspamd.com/freemail/disposable.txt.zst",
+    ];
+
+    exclude_mxs = [
+        "${CONFDIR}/local.d/maps.d/mx_check_exclude_mxs.inc",
+    ];
+  neural.conf: |
+    servers = "rspamd-valkey";
+    enabled = true;
   multimap.conf: |
     IP_WHITELIST {
         type = "ip";
@@ -16,6 +34,14 @@ data:
         filter = "email:domain";
         map = "/etc/rspamd/local.d/whitelist_sender_domain.map";
         score = -6.0
+    }
+    TRUSTED_ENVELOPE_FROM {
+      type = "from";
+      filter = "email:addr";
+      map = "redis://trusted_senders";   # name of a Redis hash
+      score = -6.0;
+      description = "Envelope sender is in the trusted list";
+      disable_multisymbol = true;
     }
     SPF_STRICT_DOMAIN {
       type = "from";              # envelope sender (MAIL FROM), which is what SPF checks

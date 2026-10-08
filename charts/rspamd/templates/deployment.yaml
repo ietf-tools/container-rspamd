@@ -156,6 +156,12 @@ spec:
             - name: config
               mountPath: /etc/rspamd/local.d/greylist.conf
               subPath: greylist.conf
+            - name: config
+              mountPath: /etc/rspamd/local.d/neural.conf
+              subPath: neural.conf
+            - name: config
+              mountPath: /etc/rspamd/local.d/mx_check.conf
+              subPath: mx_check.conf
             - name: logs
               mountPath: /var/log/rspamd
       {{- if .Values.filebeat.enabled }}
