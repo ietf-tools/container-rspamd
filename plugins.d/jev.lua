@@ -294,12 +294,25 @@ local function parse_reply(body)
       or type(answer.probabilities) ~= 'table' then
     return nil, 'invalid_answer'
   end
+  -- Known categories only, and only finite numbers: never echo upstream keys or strings into logs.
+  local function rejected()
+    local out = {}
+    for name in pairs(categories) do
+      local value = answer.probabilities[name]
+      if finite(value) then out[name] = value end
+    end
+    return out
+  end
   local sum, count = 0, 0
   for key, probability in pairs(answer.probabilities) do
-    if not categories[key] or not fraction(probability) then return nil, 'invalid_probabilities' end
+    if not categories[key] or not fraction(probability) then
+      return nil, 'invalid_probabilities', rejected()
+    end
     sum, count = sum + probability, count + 1
   end
-  if count ~= 3 or math.abs(sum - 1) > 0.01 then return nil, 'invalid_probabilities' end
+  -- The API rounds each probability to two decimals, so three of them can sum to anywhere in
+  -- 0.985..1.015; 0.99 itself lands either side of 0.01 depending on float summation order.
+  if count ~= 3 or math.abs(sum - 1) > 0.02 then return nil, 'invalid_probabilities', rejected() end
   local chosen = answer.probabilities[answer.choice]
   for _, probability in pairs(answer.probabilities) do
     if probability > chosen + 0.000001 then return nil, 'choice_mismatch' end
@@ -341,6 +354,10 @@ local function baseline(task)
 end
 
 local inflight, next_request, blocked_until = 0, 0, 0
+-- A bad answer for one message says nothing about the service; only other failures open the circuit.
+local PER_MESSAGE_ERRORS = {
+  invalid_answer = true, invalid_probabilities = true, choice_mismatch = true, invalid_usage = true,
+}
 local function check(task)
   local record = {
     schema_version = 1,
@@ -416,7 +433,7 @@ local function check(task)
     record.api_error = api_error
     if reason then
       record.status, record.reason = 'error', reason
-      blocked_until = util.get_time() + settings.cooldown
+      if not PER_MESSAGE_ERRORS[reason] then blocked_until = util.get_time() + settings.cooldown end
       task:insert_result('JEV_ERROR', 0.0, reason)
       logger.warnx(task, 'jev: evaluation failed (%s, HTTP %s, %s)',
           reason, code or 0, api_error or 'no_api_error')
@@ -443,7 +460,8 @@ local function check(task)
       if code ~= 200 then
         complete('http_status', nil, code, api_error_class(code, response)); return
       end
-      local result, reason = parse_reply(response)
+      local result, reason, rejected = parse_reply(response)
+      record.invalid_probabilities = rejected
       complete(reason, result, code)
     end,
   })
