@@ -8,6 +8,7 @@ RUN apt-get update \
     && apt-get -q clean \
     && rm -rf /var/lib/apt/lists/* /var/log/apt/*.log /var/log/dpkg.log
 
+COPY plugins.d /etc/rspamd/plugins.d
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 

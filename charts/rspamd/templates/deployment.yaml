@@ -98,6 +98,9 @@ spec:
               subPath: history_redis.conf
           {{- end }}
             - name: config
+              mountPath: /etc/rspamd/local.d/worker-controller.inc
+              subPath: worker-controller.inc
+            - name: config
               mountPath: /etc/rspamd/local.d/worker-normal.inc
               subPath: worker-normal.inc
             - name: config
@@ -162,6 +165,29 @@ spec:
             - name: config
               mountPath: /etc/rspamd/local.d/mx_check.conf
               subPath: mx_check.conf
+            - name: config
+              mountPath: /etc/rspamd/override.d/worker-fuzzy.inc
+              subPath: worker-fuzzy.inc
+            - name: config
+              mountPath: /etc/rspamd/override.d/fuzzy_check.conf
+              subPath: fuzzy_check.conf
+            - name: config
+              mountPath: /etc/rspamd/override.d/fuzzy_group.conf
+              subPath: fuzzy_group.conf
+            - name: config
+              mountPath: /etc/rspamd/local.d/composites.conf
+              subPath: composites.conf
+            - name: config
+              mountPath: /etc/rspamd/local.d/spamtrap.conf
+              subPath: spamtrap.conf
+            {{- if .Values.rspamd.jevEnabled }}
+            - name: config
+              mountPath: /etc/rspamd/local.d/jev.conf
+              subPath: jev.conf
+            - name: config
+              mountPath: /etc/rspamd/rspamd.conf.local
+              subPath: rspamd.conf.local
+            {{- end }}
             - name: logs
               mountPath: /var/log/rspamd
       {{- if .Values.filebeat.enabled }}
