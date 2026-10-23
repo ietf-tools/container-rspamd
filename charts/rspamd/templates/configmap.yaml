@@ -31,15 +31,25 @@ data:
     cooldown = 60;
 
     max_message_bytes = 1048576;
-    max_body_bytes = 6000;
-    max_request_bytes = 24576;
-    max_urls = 16;
+    max_body_bytes = 16000;
+    max_request_bytes = 49152;
+    max_urls = 32;
     max_attachments = 8;
 
     # Only changes observation labels; never changes scores or actions.
     probability_threshold = {{ .Values.rspamd.jevProbabilityThreshold }};
     confidence_threshold = {{ .Values.rspamd.jevConfidenceThreshold }};
 {{- end }}
+  settings.conf: |
+    list_bounces {
+      priority = high;
+      # Mailman bounce addresses: plain, VERP (+user=dom) and DMARC-mangled (=40)
+      rcpt = "/-bounces([+=@])/i";
+      apply {
+        # skip Bayes for these messages: no BAYES_* scoring, no autolearn
+        flags = ["no_stat"];
+      }
+    }
   spamtrap.conf: |
     enabled = true;
     action = "no action";
