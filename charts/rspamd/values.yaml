@@ -130,6 +130,9 @@ tolerations: []
 affinity: {}
 
 rspamd:
+  jevEnabled: false
+  jevProbabilityThreshold: 0.9
+  jevConfidenceThreshold: 0.9
   reject: "null"
   add_header: 6
   spam_autolearn_threshold: 10

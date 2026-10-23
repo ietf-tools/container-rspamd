@@ -4,6 +4,135 @@ metadata:
   name: {{ include "rspamd.fullname" . }}
   labels: {{- include "rspamd.labels" . | nindent 4}}
 data:
+{{- if .Values.rspamd.jevEnabled }}
+  rspamd.conf.local: |
+    jev {
+      .include "$LOCAL_CONFDIR/local.d/jev.conf"
+    }
+  jev.conf: |
+    enabled = true;
+    mode = "live";
+    url = "https://api.typesafe.ai/v1/systemone";
+    model = "jev-1.14.0";
+    allow_external = true;
+    # set by read -rs JEV_KEY && printf '%s' "$JEV_KEY" | redis-cli -x SET jev_api_key; unset JEV_KEY
+    api_key_redis_key = "jev_api_key";
+    recipient_domains = ["*"];
+
+    # Optional: require an existing gpt module result before querying Jev.
+    # false works with plain Rspamd; true requires GPT_CHECK and GPT_* results.
+    require_gpt = false;
+    sample_rate = 1.0;
+    timeout = 1.5;
+
+    # PER WORKER, not global. No retries or cache.
+    requests_per_second = 100;
+    max_inflight = 20;
+    cooldown = 60;
+
+    max_message_bytes = 1048576;
+    max_body_bytes = 6000;
+    max_request_bytes = 24576;
+    max_urls = 16;
+    max_attachments = 8;
+
+    # Only changes observation labels; never changes scores or actions.
+    probability_threshold = {{ .Values.rspamd.jevProbabilityThreshold }};
+    confidence_threshold = {{ .Values.rspamd.jevConfidenceThreshold }};
+{{- end }}
+  spamtrap.conf: |
+    enabled = true;
+    action = "no action";
+    score = 1.0;
+    learn_fuzzy = true;
+    learn_spam = true;
+    # map removed → Redis lookups are used instead
+    # key_prefix = "sptr_";   # default, change if you like
+  worker-fuzzy.inc: |
+    count = 2;
+    bind_socket = "*:11335";
+    backend = "redis";        # uses the servers from local.d/redis.conf
+    expire = 90d;
+    allow_update = ["127.0.0.1", "::1"];
+  fuzzy_check.conf: |
+    rule "SPAM_CAMPAIGNS" {
+      servers = "localhost:11335";
+      algorithm = "mumhash";
+
+      fuzzy_map = {
+        FUZZY_SPAM_TEMPLATES {
+          flag = 200;
+          hits_limit = 15.0;
+        }
+      }
+    }
+
+    rule "FUZZY_LOCAL" {
+      # Server(s) to query - required
+      servers = "localhost:11335";
+
+      # Hash algorithm: mumhash (default), fasthash, xxhash, siphash
+      algorithm = "mumhash";
+
+      # Allow write operations (learning) to this storage; set true to disallow
+      read_only = false;
+      text_shingles = true;
+      html_shingles = true;
+      min_html_tags = 15;
+      html_weight = 1.0;
+
+      # Map flags to symbols
+      fuzzy_map = {
+        FUZZY_DENIED {
+          flag = 1;
+          max_score = 20.0;
+        }
+        FUZZY_PROB {
+          flag = 2;
+          max_score = 10.0;
+        }
+        FUZZY_WHITE {
+          flag = 3;
+          max_score = 2.0;
+        }
+      }
+    }
+  fuzzy_group.conf: |
+    max_score = 12.0;
+    symbols = {
+        "FUZZY_DENIED" {
+            weight = 12.0;
+            description = "Denied fuzzy hash";
+        }
+        "FUZZY_PROB" {
+            weight = 5.0;
+            description = "Probable fuzzy hash";
+        }
+        "FUZZY_WHITE" {
+            weight = -2.1;
+            description = "Whitelisted fuzzy hash";
+        }
+        "FUZZY_UNKNOWN" {
+            weight = 5.0;
+            description = "Generic fuzzy hash match";
+        }
+        "LOCAL_FUZZY_UNKNOWN" {
+            weight = 5.0;
+            description = "Generic fuzzy hash match";
+        }
+        "LOCAL_FUZZY_DENIED" {
+            weight = 12.0;
+            description = "Denied fuzzy hash";
+        }
+        "LOCAL_FUZZY_PROB" {
+            weight = 5.0;
+            description = "Probable fuzzy hash";
+        }
+        "LOCAL_FUZZY_WHITE" {
+            weight = -2.1;
+            description = "Whitelisted fuzzy hash";
+        }
+    }
   mx_check.conf: |
     enabled = true;
 
@@ -20,7 +149,6 @@ data:
         "${CONFDIR}/local.d/maps.d/mx_check_exclude_mxs.inc",
     ];
   neural.conf: |
-    servers = "rspamd-valkey";
     enabled = true;
   multimap.conf: |
     IP_WHITELIST {
@@ -57,6 +185,13 @@ data:
         expression = "R_SPF_SOFTFAIL & SPF_STRICT_DOMAIN";
         message = "SPF softfail not accepted for this sender domain";
       }
+    }
+  composites.conf: |
+    EMPTY_SUBJECT_UNCAPPED {
+      expression = "EMPTY_SUBJECT";
+      score = 8.0;
+      policy = "remove_weight";
+      description = "Empty subject, scored outside the capped headers group";
     }
   spf_strict_domains.map: |
 {{- range .Values.rspamd.spf_strict_domains }}
@@ -103,6 +238,8 @@ data:
 {{- else }}
   classifier-bayes.conf: ""
 {{- end }}
+  worker-controller.inc: |
+    secure_ip = ["127.0.0.1", "::1", "10.0.0.0/8"];   # add your Prometheus host / pod CIDR
   worker-normal.inc: |
     bind_socket = "*:11333";
   worker-proxy.inc: |
@@ -118,6 +255,11 @@ data:
       log_tag_type = "queue_id";
     }
   dkim_signing.conf: |
+{{- if .Values.rspamd.dkimRedis }}
+    use_redis = true;
+    key_prefix = "DKIM_PRIVKEYS";
+    selector_prefix = "DKIM_SELECTORS";
+{{- end }}
     allow_hdrfrom_mismatch_sign_networks = {{ .Values.rspamd.dkim.allow_hdrfrom_mismatch_sign_networks }};
     allow_username_mismatch = {{ .Values.rspamd.dkim.allow_username_mismatch }};
     sign_authenticated = {{ .Values.rspamd.dkim.sign_authenticated }};
