@@ -4,9 +4,9 @@ description: IETF rspamd deployment for kubernetes
 
 type: application
 
-version: 2.1.1
+version: 2.1.2
 
-appVersion: "2.1.1"
+appVersion: "2.1.2"
 
 baseVersion: "4.2.3"
 
