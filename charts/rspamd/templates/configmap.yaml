@@ -47,8 +47,16 @@ data:
       rcpt = "/-bounces([+=@])/i";
       apply {
         # skip Bayes for these messages: no BAYES_* scoring, no autolearn
+        symbols_disabled = ["BAYES_SPAM", "BAYES_HAM"];
         flags = ["no_stat"];
       }
+    }
+    dmarc_reports {
+      priority = high;
+      # DMARC reports: many reporters' hostnames don't resolve and trip MX/HELO checks.
+      # Skip all checks so none are tagged or rejected before the report pipeline reads them.
+      rcpt = ["dmarc-report@ietf.org", "dmarc_report@ietf.org"];
+      want_spam = yes;
     }
   spamtrap.conf: |
     enabled = true;
