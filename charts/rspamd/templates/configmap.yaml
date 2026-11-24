@@ -45,11 +45,7 @@ data:
       priority = high;
       # Mailman bounce addresses: plain, VERP (+user=dom) and DMARC-mangled (=40)
       rcpt = "/-bounces([+=@])/i";
-      apply {
-        # skip Bayes for these messages: no BAYES_* scoring, no autolearn
-        symbols_disabled = ["BAYES_SPAM", "BAYES_HAM"];
-        flags = ["no_stat"];
-      }
+      want_spam = yes;
     }
     dmarc_reports {
       priority = high;
@@ -175,19 +171,53 @@ data:
         map = "/etc/rspamd/local.d/whitelist_ip.map";
         action = "accept";
     }
+    # WHITELIST_SENDER_DOMAIN and TRUSTED_ENVELOPE_FROM only look at the
+    # (unauthenticated) envelope sender, so they are markers now. The -6
+    # is applied by the *_AUTH composites in composites.conf, which also
+    # require SPF to pass, or DMARC to pass with From == envelope sender.
     WHITELIST_SENDER_DOMAIN {
         type = "from";
         filter = "email:domain";
         map = "/etc/rspamd/local.d/whitelist_sender_domain.map";
-        score = -6.0
+        score = 0.0;
+        description = "Envelope sender domain is on the whitelist (marker, see WHITELIST_SENDER_DOMAIN_AUTH)";
     }
     TRUSTED_ENVELOPE_FROM {
       type = "from";
       filter = "email:addr";
       map = "redis://trusted_senders";   # name of a Redis hash
-      score = -6.0;
-      description = "Envelope sender is in the trusted list";
+      score = 0.0;
+      description = "Envelope sender is in the trusted list (marker, see TRUSTED_ENVELOPE_FROM_AUTH)";
       disable_multisymbol = true;
+    }
+    # List-manager command addresses legitimately receive mail with an
+    # empty Subject (subscribe/unsubscribe in the body).
+    LIST_COMMAND_RCPT {
+      type = "rcpt";
+      filter = "email:addr";
+      regexp = true;
+      map = "/etc/rspamd/local.d/list_command_rcpt.map";
+      score = 0.0;
+      description = "Recipient is a list command address (marker)";
+    }
+    # Sender domains under TLDs that are almost exclusively spam in the
+    # postconfirm stash (9k of 176k stashed messages; 5 delivered in 3 days).
+    FROM_ABUSED_TLD {
+      type = "header";
+      header = "From";
+      filter = "email:domain";
+      regexp = true;
+      map = "/etc/rspamd/local.d/abused_tlds.map";
+      score = 3.0;
+      description = "From: domain is under a heavily abused TLD";
+    }
+    ENVFROM_ABUSED_TLD {
+      type = "from";
+      filter = "email:domain";
+      regexp = true;
+      map = "/etc/rspamd/local.d/abused_tlds.map";
+      score = 1.5;
+      description = "Envelope sender domain is under a heavily abused TLD";
     }
     SPF_STRICT_DOMAIN {
       type = "from";              # envelope sender (MAIL FROM), which is what SPF checks
@@ -205,12 +235,135 @@ data:
       }
     }
   composites.conf: |
+    # The web UI had EMPTY_SUBJECT and this composite at +20, which rejected
+    # list commands (e.g. subscribe to foo-request@) whenever the inflated
+    # ham weights were removed. List command addresses are exempt.
     EMPTY_SUBJECT_UNCAPPED {
-      expression = "EMPTY_SUBJECT";
-      score = 8.0;
+      expression = "EMPTY_SUBJECT & !LIST_COMMAND_RCPT";
+      score = {{ .Values.rspamd.empty_subject_score }};
       policy = "remove_weight";
       description = "Empty subject, scored outside the capped headers group";
     }
+    # Whitelist/trusted credit only when the sender is authenticated:
+    # SPF pass for the envelope domain, or DMARC pass with From == envelope.
+    WHITELIST_SENDER_DOMAIN_AUTH {
+      expression = "WHITELIST_SENDER_DOMAIN & (R_SPF_ALLOW | (DMARC_POLICY_ALLOW & FROM_EQ_ENVFROM))";
+      score = -6.0;
+      policy = "leave";
+      description = "Whitelisted envelope sender domain, authenticated";
+    }
+    TRUSTED_ENVELOPE_FROM_AUTH {
+      expression = "TRUSTED_ENVELOPE_FROM & (R_SPF_ALLOW | (DMARC_POLICY_ALLOW & FROM_EQ_ENVFROM))";
+      score = -6.0;
+      policy = "leave";
+      description = "Trusted envelope sender, authenticated";
+    }
+    # Weights previously set in the web UI (rspamd_dynamic) for stock composites.
+    FREEMAIL_REPLYTO_NEQ_FROM { score = 3.0; }
+    BAD_REP_POLICIES { score = 3.0; }
+    SUSPICIOUS_URL_IN_SUSPICIOUS_MESSAGE { score = 5.0; }
+  groups.conf: |
+    # Symbol weights. These used to be set in the controller web UI, which
+    # saves them to /var/lib/rspamd/rspamd_dynamic (not in git, and higher
+    # priority than local.d). Change weights here instead.
+    #
+    # Deliberately NOT carried over from rspamd_dynamic (reverted to stock):
+    #   BAYES_HAM -6 (stock -3), DMARC_POLICY_ALLOW -2.5 (stock -0.5),
+    #   FROM_EQ_ENVFROM -2 (stock 0), R_DKIM_ALLOW -1.2 (stock -0.1),
+    #   EMPTY_SUBJECT +20 (stock 1; real score is EMPTY_SUBJECT_UNCAPPED),
+    #   TRUSTED_ENVELOPE_FROM -8 (now TRUSTED_ENVELOPE_FROM_AUTH).
+    # Together these gave any spammer with SPF+DKIM+DMARC on its own domain
+    # about -5.7 before content checks, and Bayes then autolearned it as ham.
+    group "statistics" {
+      symbols {
+        "BAYES_SPAM" { weight = 8.0; }
+      }
+    }
+    group "rbl" {
+      symbols {
+        "RECEIVED_SPAMHAUS_XBL" { weight = 1.0; }
+        "RECEIVED_SPAMHAUS_PBL" { weight = 0.0; }
+        "RECEIVED_SPAMHAUS_SBL" { weight = 2.0; }
+        "RECEIVED_SPAMHAUS_DROP" { weight = 4.0; }
+        "RBL_SPAMHAUS_CSS" { weight = 4.0; }
+        "RBL_SPAMHAUS_PBL" { weight = 2.0; }
+        "RBL_SPAMHAUS_SBL" { weight = 2.0; }
+        "RBL_SPAMHAUS_XBL" { weight = 2.0; }
+        "RBL_MAILSPIKE_WORST" { weight = 2.0; }
+        "RBL_MAILSPIKE_VERYBAD" { weight = 4.5; }
+        "RBL_VIRUSFREE_BOTNET" { weight = 6.0; }
+        "URIBL_BLACK" { weight = 7.5; }
+      }
+    }
+    group "hfilter" {
+      symbols {
+        "RDNS_NONE" { weight = 4.0; }
+        "HFILTER_HOSTNAME_UNKNOWN" { weight = 2.5; }
+        "HFILTER_HELO_NORES_A_OR_MX" { weight = 3.3; }
+        "HFILTER_FROMHOST_NORES_A_OR_MX" { weight = 3.5; }
+        "HFILTER_HELO_2" { weight = 3.0; }
+      }
+    }
+    group "headers" {
+      symbols {
+        "R_BAD_CTE_7BIT" { weight = 3.5; }
+        "MISSING_TO" { weight = 4.0; }
+        "R_UNDISC_RCPT" { weight = 5.0; }
+        "SUSPICIOUS_RECIPS" { weight = 0.5; }
+        "ONCE_RECEIVED_STRICT" { weight = 2.0; }
+      }
+    }
+    group "html" {
+      symbols {
+        "MANY_INVISIBLE_PARTS" { weight = 5.0; }
+      }
+    }
+    group "body" {
+      symbols {
+        "R_PARTS_DIFFER" { weight = 2.0; }
+      }
+    }
+    group "neural" {
+      symbols {
+        "NEURAL_SPAM" { weight = 3.0; }
+        "NEURAL_HAM" { weight = -2.0; }
+      }
+    }
+    group "mx" {
+      symbols {
+        "MX_INVALID" { weight = 0.5; }
+      }
+    }
+  regexp.conf: |
+    # Zero-width / invisible characters used to split words so filters miss
+    # them. 6.5k of 176k stashed messages match this in the Subject.
+    # Alternative 1: U+200B ZWSP, U+2060 WJ, U+FEFF ZWNBSP, U+00AD soft
+    #   hyphen anywhere in the subject.
+    # Alternative 2: U+200C ZWNJ / U+200D ZWJ between Latin or Japanese/CJK
+    #   letters (these have legitimate uses in emoji sequences and in
+    #   Persian/Indic scripts, which this leaves alone).
+    SUBJ_INVISIBLE_CHARS {
+      re = 'Subject=/[\x{200B}\x{2060}\x{FEFF}\x{00AD}]|[A-Za-z\x{3040}-\x{30FF}\x{4E00}-\x{9FFF}][\x{200C}\x{200D}][A-Za-z\x{3040}-\x{30FF}\x{4E00}-\x{9FFF}]/u';
+      score = 5.0;
+      group = "local_obfuscation";
+      description = "Subject contains invisible characters used to split words";
+    }
+    # Same trick inside body text words. Weaker: some newsletters pad
+    # preheaders with ZWNJ, though rarely between two letters.
+    # {mime} = decoded text parts. ({sa_body} also covers the Subject and
+    # has invisible characters normalised away, so it never matches.)
+    BODY_INVISIBLE_IN_WORD {
+      re = '/[A-Za-z][\x{200B}\x{200C}\x{200D}\x{2060}\x{FEFF}]+[A-Za-z]/u{mime}';
+      score = 2.0;
+      group = "local_obfuscation";
+      description = "Body text has words split by invisible characters";
+    }
+  list_command_rcpt.map: |
+    /-(request|join|leave|owner|subscribe|unsubscribe|confirm)(\+[^@]*)?@/i
+  abused_tlds.map: |
+{{- range .Values.rspamd.abused_tlds }}
+    /\.{{ . }}$/i
+{{- end }}
   spf_strict_domains.map: |
 {{- range .Values.rspamd.spf_strict_domains }}
     {{ . }}

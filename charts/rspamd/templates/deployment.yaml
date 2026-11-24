@@ -183,6 +183,18 @@ spec:
             - name: config
               mountPath: /etc/rspamd/local.d/settings.conf
               subPath: settings.conf
+            - name: config
+              mountPath: /etc/rspamd/local.d/groups.conf
+              subPath: groups.conf
+            - name: config
+              mountPath: /etc/rspamd/local.d/regexp.conf
+              subPath: regexp.conf
+            - name: config
+              mountPath: /etc/rspamd/local.d/list_command_rcpt.map
+              subPath: list_command_rcpt.map
+            - name: config
+              mountPath: /etc/rspamd/local.d/abused_tlds.map
+              subPath: abused_tlds.map
             {{- if .Values.rspamd.jevEnabled }}
             - name: config
               mountPath: /etc/rspamd/local.d/jev.conf

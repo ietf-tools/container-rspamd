@@ -144,6 +144,32 @@ rspamd:
     - 192.168.1.1
   whitelist_sender_domain:
     - mydomain.com
+  # Score for an empty Subject (not applied to list command addresses).
+  empty_subject_score: 4.0
+  # Sender TLDs that are almost always spam (FROM_ABUSED_TLD / ENVFROM_ABUSED_TLD).
+  abused_tlds:
+    - shop
+    - click
+    - autos
+    - help
+    - online
+    - store
+    - fun
+    - top
+    - icu
+    - sbs
+    - cfd
+    - lat
+    - site
+    - bond
+    - cyou
+    - rest
+    - buzz
+    - quest
+    - monster
+    - boats
+    - mom
+    - lol
 
   logging:
     # level/log_usec/debug_modules are merged into rspamd via local.d/logging.inc.
