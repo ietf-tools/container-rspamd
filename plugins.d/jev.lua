@@ -15,6 +15,7 @@ local settings = {
   allow_external = false,
   api_key_file = '',
   api_key_redis_key = '',
+  excluded_addresses_redis_key = '',
   redis = {},
   recipient_domains = {},
   require_gpt = false,
@@ -73,8 +74,13 @@ if type(settings.model) ~= 'string' or not settings.model:match('^jev%-%d+%.%d+%
   error('jev: pin a versioned model, for example jev-1.13.0')
 end
 if type(settings.url) ~= 'string' or type(settings.api_key_file) ~= 'string'
-    or type(settings.api_key_redis_key) ~= 'string' then
-  error('jev: url, api_key_file and api_key_redis_key must be strings')
+    or type(settings.api_key_redis_key) ~= 'string'
+    or type(settings.excluded_addresses_redis_key) ~= 'string' then
+  error('jev: url, api_key_file, api_key_redis_key and excluded_addresses_redis_key must be strings')
+end
+if settings.excluded_addresses_redis_key ~= ''
+    and not settings.excluded_addresses_redis_key:match('^[%w_:%.%-]+$') then
+  error('jev: invalid excluded_addresses_redis_key')
 end
 if type(settings.redis) ~= 'table' then error('jev: redis must be a section') end
 if type(settings.recipient_domains) ~= 'table' then
@@ -98,6 +104,11 @@ local function valid_key(contents)
 end
 
 local api_key, redis_params
+local api_key_from_redis = false
+local function parse_redis()
+  -- Nested section, so Redis options cannot collide with Jev's own (e.g. timeout).
+  return redis_params or require('lua_redis').parse_redis_server(N, {redis = settings.redis})
+end
 if settings.mode == 'mock' then
   if not settings.url:match('^http://127%.0%.0%.1:%d+/v1/systemone$') then
     error('jev: mock mode only permits http://127.0.0.1:PORT/v1/systemone')
@@ -114,11 +125,11 @@ elseif settings.mode == 'live' then
     error('jev: live mode requires exactly one of api_key_file or api_key_redis_key')
   end
   if settings.api_key_redis_key ~= '' then
-    -- Nested section, so Redis options cannot collide with Jev's own (e.g. timeout).
-    redis_params = require('lua_redis').parse_redis_server(N, {redis = settings.redis})
+    redis_params = parse_redis()
     if not redis_params then
       error('jev: api_key_redis_key requires Redis servers in jev { redis {} } or redis {}')
     end
+    api_key_from_redis = true
   else
     if settings.api_key_file:sub(1, 1) ~= '/' then
       error('jev: live mode requires api_key_file (absolute path readable by Rspamd)')
@@ -131,6 +142,27 @@ elseif settings.mode == 'live' then
   end
 else
   error('jev: mode must be mock or live')
+end
+if settings.excluded_addresses_redis_key ~= '' then
+  redis_params = parse_redis()
+  if not redis_params then
+    error('jev: excluded_addresses_redis_key requires Redis servers in jev { redis {} } or redis {}')
+  end
+end
+
+-- Lowercased envelope addresses whose mail is never sent to Jev. nil until the
+-- Redis set has loaded once: until then every message is skipped (fail closed).
+local excluded_addresses
+local function excluded(task)
+  local function listed(addr)
+    return type(addr) == 'string' and excluded_addresses[addr:lower()] ~= nil
+  end
+  local senders = task:get_from('smtp') or {}
+  if senders[1] and listed(senders[1].addr) then return true end
+  for _, recipient in ipairs(task:get_recipients('smtp') or {}) do
+    if listed(recipient.addr) then return true end
+  end
+  return false
 end
 
 local question = {
@@ -386,6 +418,10 @@ local function check(task)
       if not domains[(recipient.domain or ''):lower()] then skip('recipient_domain'); return end
     end
   end
+  if settings.excluded_addresses_redis_key ~= '' then
+    if not excluded_addresses then skip('exclusions_not_loaded'); return end
+    if excluded(task) then skip('excluded_address'); return end
+  end
   if settings.require_gpt and baseline(task).verdict == 'not_observed' then
     skip('no_gpt_result'); return
   end
@@ -487,11 +523,49 @@ local function read_redis_key(cfg, ev_base)
     logger.warnx(cfg, 'jev: cannot schedule Redis API key request')
   end
 end
+local MAX_EXCLUDED_ADDRESS = 320
+local function read_excluded_addresses(cfg, ev_base)
+  local function callback(err, data)
+    -- A missing key is an empty set. Errors (including WRONGTYPE) keep the previous set.
+    if err or type(data) ~= 'table' then
+      logger.warnx(cfg, 'jev: cannot load excluded addresses from Redis (%s); keeping %s',
+          err and 'request_failed' or 'invalid_reply',
+          excluded_addresses and 'previous set' or 'none, skipping all messages')
+      return
+    end
+    local loaded, count, invalid = {}, 0, 0
+    for _, member in ipairs(data) do
+      local addr = type(member) == 'string' and member:match('^%s*(.-)%s*$'):lower()
+      if addr and #addr <= MAX_EXCLUDED_ADDRESS and addr:find('.@.') and not addr:find('[%c%s]') then
+        if not loaded[addr] then loaded[addr], count = true, count + 1 end
+      else
+        invalid = invalid + 1
+      end
+    end
+    -- Counts only: never log the addresses themselves.
+    if invalid > 0 then
+      logger.warnx(cfg, 'jev: ignored %s invalid excluded address entries', invalid)
+    end
+    if not excluded_addresses then
+      logger.infox(cfg, 'jev: loaded %s excluded addresses from Redis', count)
+    end
+    excluded_addresses = loaded
+  end
+  local key = settings.excluded_addresses_redis_key
+  if not require('lua_redis').redis_make_request_taskless(ev_base, cfg, redis_params, key,
+      false, callback, 'SMEMBERS', {key}) then
+    logger.warnx(cfg, 'jev: cannot schedule Redis excluded addresses request')
+  end
+end
+
 if redis_params then
   rspamd_config:add_on_load(function(_, ev_base, worker)
     if not worker:is_scanner() then return end
     rspamd_config:add_periodic(ev_base, 0.0, function(cfg)
-      read_redis_key(cfg, ev_base)
+      if api_key_from_redis then read_redis_key(cfg, ev_base) end
+      if settings.excluded_addresses_redis_key ~= '' then
+        read_excluded_addresses(cfg, ev_base)
+      end
       return REDIS_KEY_REFRESH
     end, true)
   end)
