@@ -45,7 +45,11 @@ data:
       priority = high;
       # Mailman bounce addresses: plain, VERP (+user=dom) and DMARC-mangled (=40)
       rcpt = "/-bounces([+=@])/i";
-      want_spam = yes;
+      apply {
+        # skip Bayes for these messages: no BAYES_* scoring, no autolearn
+        symbols_disabled = ["BAYES_SPAM", "BAYES_HAM"];
+        flags = ["no_stat"];
+      }
     }
     dmarc_reports {
       priority = high;
