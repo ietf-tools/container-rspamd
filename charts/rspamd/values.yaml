@@ -146,6 +146,13 @@ rspamd:
     - mydomain.com
   # Score for an empty Subject (not applied to list command addresses).
   empty_subject_score: 4.0
+  # Learn inbound spam scoring at least min_score (fuzzy matches not counted) into the
+  # local fuzzy storage under its own flag; later copies of the campaign get FUZZY_AUTO.
+  fuzzy_autolearn:
+    enabled: true
+    min_score: 15
+    flag: 4
+    weight: 4.0
   # Sender TLDs that are almost always spam (FROM_ABUSED_TLD / ENVFROM_ABUSED_TLD).
   abused_tlds:
     - shop
@@ -196,38 +203,38 @@ rspamd:
     subjectPrivacy: false
 
   dkim:
-    allow_hdrfrom_mismatch_sign_networks: "true"
-    allow_username_mismatch: "true"
-    sign_authenticated: "true"
-    sign_local: "true"
-    sign_inbound: "true"
+    allow_hdrfrom_mismatch_sign_networks: true
+    allow_username_mismatch: true
+    sign_authenticated: true
+    sign_local: true
+    sign_inbound: true
     use_domain: "envelope"
-    use_esld: "false"
-    allow_hdrfrom_mismatch: "true"
+    use_esld: false
+    allow_hdrfrom_mismatch: true
     domains:
       - name: dene.com
         selector: mail
       - name: lists.sys.slush.ca
-        selector: 2020
+        selector: "2020"
 
   milterHeaders: |
     use = ["x-spamd-bar", "x-spam-level", "authentication-results"];
     authenticated_headers = ["authentication-results"];
 
   arc:
-    enabled: "true"
+    enabled: true
     selector: arc
     use_domain: recipient
-    use_esld: "false"
-    sign_inbound: "true"
-    sign_local: "true"
-    sign_authenticated: "true"
-    allow_envfrom_empty: "true"
-    allow_hdrfrom_mismatch: "true"
-    allow_hdrfrom_mismatch_local: "true"
-    allow_hdrfrom_mismatch_sign_networks: "true"
-    allow_hdrfrom_multiple: "true"
-    allow_username_mismatch: "true"
+    use_esld: false
+    sign_inbound: true
+    sign_local: true
+    sign_authenticated: true
+    allow_envfrom_empty: true
+    allow_hdrfrom_mismatch: true
+    allow_hdrfrom_mismatch_local: true
+    allow_hdrfrom_mismatch_sign_networks: true
+    allow_hdrfrom_multiple: true
+    allow_username_mismatch: true
     sign_headers: "list-unsubscribe:list-archive:list-help:list-post:list-id:precedence:to:subject:message-id:date:from:mime-version:dkim-signature"
 
 valkey:
@@ -247,7 +254,7 @@ valkey:
     enabled: true
 
 filebeat:
-  filebeatVersion: 9.3.3
+  filebeatVersion: "9.5.5"
   enabled: false
   tlsCA: false
   # Empty -> falls back to the chart's fullname (release-name-rspamd).
