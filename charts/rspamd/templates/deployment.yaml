@@ -109,7 +109,7 @@ spec:
             - name: config
               mountPath: /etc/rspamd/local.d/dkim_signing.conf
               subPath: dkim_signing.conf
-          {{- if .Values.rspamd.arc.enabled }}
+          {{- if eq (toString .Values.rspamd.arc.enabled) "true" }}
             - name: config
               mountPath: /etc/rspamd/local.d/arc.conf
               subPath: arc.conf
@@ -121,9 +121,6 @@ spec:
               mountPath: /etc/rspamd/local.d/classifier-bayes.conf
               subPath: classifier-bayes.conf
             - name: config
-              mountPath: /etc/rspamd/override.d/classifier-bayes.conf
-              subPath: override-classifier-bayes.conf
-            - name: config
               mountPath: /etc/rspamd/local.d/multimap.conf
               subPath: multimap.conf
             - name: config
@@ -133,23 +130,11 @@ spec:
               mountPath: /etc/rspamd/local.d/spf_strict_domains.map
               subPath: spf_strict_domains.map
             - name: config
-              mountPath: /etc/rspamd/local.d/ip_whitelist.map
-              subPath: ip_whitelist.map
-            - name: config
               mountPath: /etc/rspamd/local.d/whitelist_sender_domain.map
               subPath: whitelist_sender_domain.map
             - name: config
               mountPath: /etc/rspamd/local.d/whitelist_ip.map
               subPath: whitelist_ip.map
-            - name: config
-              mountPath: /etc/rspamd/local.d/whitelist_from.map
-              subPath: whitelist_from.map
-            - name: config
-              mountPath: /etc/rspamd/local.d/blacklist_ip.map
-              subPath: blacklist_ip.map
-            - name: config
-              mountPath: /etc/rspamd/local.d/blacklist_from.map
-              subPath: blacklist_from.map
             - name: config
               mountPath: /etc/rspamd/local.d/actions.conf
               subPath: actions.conf
@@ -195,6 +180,11 @@ spec:
             - name: config
               mountPath: /etc/rspamd/local.d/abused_tlds.map
               subPath: abused_tlds.map
+            {{- if .Values.rspamd.fuzzy_autolearn.enabled }}
+            - name: config
+              mountPath: /etc/rspamd/lua.local.d/fuzzy_autolearn.lua
+              subPath: fuzzy_autolearn.lua
+            {{- end }}
             {{- if .Values.rspamd.jevEnabled }}
             - name: config
               mountPath: /etc/rspamd/local.d/jev.conf
