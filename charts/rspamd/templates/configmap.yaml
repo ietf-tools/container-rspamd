@@ -179,6 +179,22 @@ data:
     -- would then match every bounce from the same MTA.
     local SKIP_SYMBOLS = { "FUZZY_WHITE", "BOUNCE" }
 
+    -- BOUNCE does not fire on every DSN, so also skip anything with a delivery report part.
+    -- Null-sender mail is still learned: phishing runs to role addresses use it. Generic
+    -- DSN text learned from fake bounces is kept off real bounces by the
+    -- FUZZY_AUTO_ON_BOUNCE composite instead.
+    local function is_dsn(task)
+      for _, part in ipairs(task:get_parts() or {}) do
+        local mtype, subtype = part:get_type()
+        mtype, subtype = (mtype or ""):lower(), (subtype or ""):lower()
+        if (mtype == "multipart" and subtype == "report")
+          or (mtype == "message" and subtype == "delivery-status") then
+          return true
+        end
+      end
+      return false
+    end
+
     rspamd_config:register_symbol({
       name = "FUZZY_AUTOLEARN_CHECK",
       type = "idempotent",  -- runs once the final score is known
@@ -191,6 +207,7 @@ data:
         for _, sym in ipairs(SKIP_SYMBOLS) do
           if task:has_symbol(sym) then return end
         end
+        if is_dsn(task) then return end
         local score = task:get_metric_score("default")[1] or 0
         for _, sym in ipairs(FUZZY_SYMBOLS) do
           local res = task:get_symbol(sym)
@@ -315,6 +332,17 @@ data:
       score = -6.0;
       policy = "leave";
       description = "Trusted envelope sender, authenticated";
+    }
+    # FUZZY_AUTO can learn generic DSN text from fake bounces, which then matches real
+    # bounces to the lists' -bounces addresses. Drop its weight on real bounces so
+    # Mailman still gets them. remove_weight keeps both symbols (fuzzy_autolearn.lua skips
+    # on BOUNCE) and also zeroes BOUNCE's -0.1. Tested on 4.2.3: "~FUZZY_AUTO"
+    # with policy "leave" removes nothing, and without a policy BOUNCE is deleted.
+    FUZZY_AUTO_ON_BOUNCE {
+      expression = "BOUNCE & FUZZY_AUTO";
+      score = 0.0;
+      policy = "remove_weight";
+      description = "FUZZY_AUTO weight removed on a bounce";
     }
     # Weights previously set in the web UI (rspamd_dynamic) for stock composites.
     FREEMAIL_REPLYTO_NEQ_FROM { score = 3.0; }
