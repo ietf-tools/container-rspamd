@@ -58,6 +58,20 @@ data:
       rcpt = ["dmarc-report@ietf.org", "dmarc_report@ietf.org"];
       want_spam = yes;
     }
+    authenticated_submission {
+      # SMTP AUTH submissions (port 587, e.g. authentik as mail2@ietf.org).
+      # rspamd skips SPF/DKIM/DMARC for authenticated users (check_authed = false),
+      # so the *_AUTH whitelist composites can never match outbound mail.
+      # Keep Bayes out of it: no BAYES_* score, and no learning from our own mail.
+      # Other checks still run, so a compromised account can still be tagged.
+      # medium priority: the rcpt rules above win when both match.
+      priority = medium;
+      authenticated = yes;
+      apply {
+        symbols_disabled = ["BAYES_SPAM", "BAYES_HAM"];
+        flags = ["no_stat"];
+      }
+    }
   spamtrap.conf: |
     enabled = true;
     action = "no action";
