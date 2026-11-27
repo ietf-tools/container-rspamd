@@ -238,6 +238,7 @@ data:
 {{- end }}
   mx_check.conf: |
     enabled = true;
+    exclude_ips = ["0.0.0.0/0", "::/0"];
 
     exclude_domains = [
       "${CONFDIR}/local.d/maps.d/mx_check_exclude_domains.inc",
@@ -252,7 +253,7 @@ data:
         "${CONFDIR}/local.d/maps.d/mx_check_exclude_mxs.inc",
     ];
   neural.conf: |
-    enabled = true;
+    enabled = false;
   multimap.conf: |
     IP_WHITELIST {
         type = "ip";
@@ -434,6 +435,15 @@ data:
         "MX_INVALID" { weight = 0.5; }
       }
     }
+{{- if .Values.rspamd.jevEnabled }}
+    group "jev" {
+      symbols {
+        "JEV_PHISHING" { weight = 4.0; }
+        "JEV_SPAM"     { weight = 3.0; }
+        # JEV_HAM and JEV_UNCERTAIN stay at 0
+      }
+    }
+{{- end }}
   regexp.conf: |
     # Zero-width / invisible characters used to split words so filters miss
     # them. 6.5k of 176k stashed messages match this in the Subject.
